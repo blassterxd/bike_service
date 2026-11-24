@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Калькулятор услуг · Веломастерская «Крути педали»</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 16px;
+      background: #f5f0e8;
+      color: #30251d;
+      font: 1rem/1.5 "Roboto", system-ui, sans-serif;
+    }
+    main {
+      max-width: 30rem;
+      margin: 2rem auto;
+      padding: clamp(1.25rem, 5vw, 2.5rem);
+      border: 1px solid #ded4c8;
+      border-radius: 1rem;
+      background: #fffdf9;
+    }
+    h1 { font-size: clamp(1.75rem, 6vw, 2.4rem); line-height: 1.1; margin: .4rem 0 1.8rem; }
+    p { margin: 0; }
+    form { display: grid; gap: 1.2rem; }
+    label { display: grid; gap: .35rem; font-weight: 600; }
+    select, input, button { font: inherit; }
+    select, input[type="number"] {
+      width: 100%;
+      padding: .65rem .75rem;
+      border: 1px solid #817568;
+      border-radius: .4rem;
+      color: inherit;
+      background: white;
+    }
+    button {
+      padding: .75rem;
+      border: 0;
+      border-radius: .4rem;
+      background: #285246;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    :focus-visible { outline: 3px solid #9b4c23; outline-offset: 3px; }
+    output:not(:empty) { display: block; margin-top: 1.4rem; font-size: 1.2rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>Веломастерская «Крути педали»</p>
+    <h1>Калькулятор услуг</h1>
+    <form id="order" action="/api/price" method="get">
+      <label>Услуга
+        <select name="item">
+          <option value="brake_setup">Настройка тормоза · 350 ₽</option>
+          <option value="tube_replacement">Замена камеры · 450 ₽</option>
+          <option value="derailleur_tuning">Регулировка переключателя · 500 ₽</option>
+        </select>
+      </label>
+      <label>Количество (от 1)
+        <input name="quantity" type="number" min="1" max="20" step="1" value="1" required>
+      </label>
+      <button type="submit" disabled>Рассчитать</button>
+      <noscript><p>Чтобы рассчитать стоимость, включите JavaScript в браузере.</p></noscript>
+    </form>
+    <output id="receipt" aria-live="polite"></output>
+  </main>
+  <script>
+    const form = document.querySelector("#order");
+    const receipt = document.querySelector("#receipt");
+    const button = form.querySelector("button");
+    let orderVersion = 0;
+
+    form.addEventListener("input", () => {
+      orderVersion++;
+      receipt.textContent = "";
+      button.disabled = false;
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const requestVersion = ++orderVersion;
+      const params = new URLSearchParams(new FormData(form));
+      button.disabled = true;
+      let message;
+      try {
+        const response = await fetch(form.action + "?" + params);
+        if (response.status === 422) {
+          message = "Выберите услугу из списка и укажите количество — целое число от 1.";
+        } else if (response.ok) {
+          const order = await response.json();
+          message = order.name + " (" + order.quantity + " шт.) — Итого: " + order.total + " ₽";
+        } else {
+          message = "Не удалось рассчитать стоимость. Попробуйте ещё раз.";
+        }
+      } catch {
+        message = "Нет связи с сервером. Попробуйте ещё раз.";
+      }
+      if (requestVersion === orderVersion) {
+        receipt.textContent = message;
+        button.disabled = false;
+      }
+    });
+    button.disabled = false;
+  </script>
+</body>
+</html>
